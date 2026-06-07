@@ -50,6 +50,8 @@ public class DispatchGuideServiceImpl implements DispatchGuideService {
         guide.setDestino(request.getDestino().trim());
         guide.setDescripcion(request.getDescripcion());
 
+        guide.setFileName("PENDIENTE");
+
         guide = dispatchGuideRepository.save(guide);
         guide.setFileName(guideFileService.buildFileName(guide.getId()));
 
