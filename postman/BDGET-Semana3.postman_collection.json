@@ -1,0 +1,224 @@
+{
+	"info": {
+		"_postman_id": "bdget-semana3-collection",
+		"name": "BDGET - Semana 3 (CDY2204)",
+		"description": "Colección para demostrar el Sistema de Guías de Despacho: almacenamiento temporal en EFS, gestión en AWS S3 y endpoints REST.\n\n**Orden sugerido para el video:**\n1. Crear guía de despacho (guarda en EFS)\n2. Consultar historial por transportista y fecha\n3. Descargar guía (validación de permisos)\n4. Subir guía a S3\n5. Descargar guía desde S3\n6. Modificar / actualizar guía\n7. Consultar historial nuevamente\n8. Eliminar guía específica\n\n**Variables de colección:**\n- `baseUrl`: URL del microservicio\n- `transportista`: nombre del transportista\n- `guiaId`: se actualiza al crear una guía\n- `s3Key`: clave S3 generada (yyyyMM/transportista/guia{id}.pdf)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080"
+		},
+		{
+			"key": "transportista",
+			"value": "transportistaX"
+		},
+		{
+			"key": "guiaId",
+			"value": "1"
+		},
+		{
+			"key": "s3Key",
+			"value": ""
+		},
+		{
+			"key": "fecha",
+			"value": "2025-06-02"
+		}
+	],
+	"item": [
+		{
+			"name": "01 - Guías de Despacho",
+			"item": [
+				{
+					"name": "Crear guía (EFS temporal)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('guiaId', json.id);",
+									"    pm.collectionVariables.set('transportista', json.transportista);",
+									"    pm.collectionVariables.set('s3Key', json.s3Key);",
+									"    pm.collectionVariables.set('fecha', json.fecha);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"transportista\": \"transportistaX\",\n  \"fecha\": \"2025-06-02\",\n  \"pedidoId\": \"PED-001\",\n  \"origen\": \"Santiago\",\n  \"destino\": \"Valparaiso\",\n  \"descripcion\": \"Envio de repuestos industriales\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/guias",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "guias"]
+						},
+						"description": "Genera una guía de despacho y la almacena temporalmente en EFS (/app/efs)."
+					},
+					"response": []
+				},
+				{
+					"name": "Consultar historial (transportista + fecha)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/guias/historial?transportista={{transportista}}&fecha={{fecha}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "guias", "historial"],
+							"query": [
+								{
+									"key": "transportista",
+									"value": "{{transportista}}"
+								},
+								{
+									"key": "fecha",
+									"value": "{{fecha}}"
+								}
+							]
+						},
+						"description": "Lista guías filtradas por transportista y fecha."
+					},
+					"response": []
+				},
+				{
+					"name": "Consultar historial (solo transportista)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/guias/historial?transportista={{transportista}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "guias", "historial"],
+							"query": [
+								{
+									"key": "transportista",
+									"value": "{{transportista}}"
+								}
+							]
+						},
+						"description": "Lista todas las guías de un transportista."
+					},
+					"response": []
+				},
+				{
+					"name": "Descargar guía (permiso válido)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/guias/{{guiaId}}/download?transportista={{transportista}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "guias", "{{guiaId}}", "download"],
+							"query": [
+								{
+									"key": "transportista",
+									"value": "{{transportista}}"
+								}
+							]
+						},
+						"description": "Descarga la guía validando que el transportista coincida. Antes de subir a S3 lee desde EFS; después desde S3."
+					},
+					"response": []
+				},
+				{
+					"name": "Descargar guía (permiso denegado)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/guias/{{guiaId}}/download?transportista=otroTransportista",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "guias", "{{guiaId}}", "download"],
+							"query": [
+								{
+									"key": "transportista",
+									"value": "otroTransportista"
+								}
+							]
+						},
+						"description": "Demuestra la validación de permisos (debe responder 403 Forbidden)."
+					},
+					"response": []
+				},
+				{
+					"name": "Subir guía a S3",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/guias/{{guiaId}}/s3",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "guias", "{{guiaId}}", "s3"]
+						},
+						"description": "Sube la guía desde EFS a S3 en la ruta yyyyMM/transportista/guia{id}.pdf"
+					},
+					"response": []
+				},
+				{
+					"name": "Modificar / actualizar guía",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"destino\": \"Concepcion\",\n  \"descripcion\": \"Envio actualizado - entrega express\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/guias/{{guiaId}}?transportista={{transportista}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "guias", "{{guiaId}}"],
+							"query": [
+								{
+									"key": "transportista",
+									"value": "{{transportista}}"
+								}
+							]
+						},
+						"description": "Actualiza la guía en EFS y, si ya fue subida, también en S3."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar guía",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/guias/{{guiaId}}?transportista={{transportista}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "guias", "{{guiaId}}"],
+							"query": [
+								{
+									"key": "transportista",
+									"value": "{{transportista}}"
+								}
+							]
+						},
+						"description": "Elimina la guía de EFS, S3 (si existe) y base de datos. Ejecutar al final de la demo."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
